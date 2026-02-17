@@ -552,8 +552,8 @@
     if (singleDiagnosisToggleEl) {
       singleDiagnosisToggleEl.setAttribute("aria-expanded", String(state.singleModeOpen));
       singleDiagnosisToggleEl.textContent = state.singleModeOpen
-        ? "Hide single receipt diagnosis"
-        : "Single receipt diagnosis";
+        ? "Hide single diagnosis mode"
+        : "Single diagnosis mode";
     }
   }
 

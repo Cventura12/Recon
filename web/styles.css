@@ -739,6 +739,12 @@ textarea {
 
 .queue-panel {
   background: var(--panel-secondary);
+  position: sticky;
+  top: 10px;
+  align-self: start;
+  max-height: calc(100vh - 22px);
+  display: flex;
+  flex-direction: column;
 }
 
 .intake-card {
@@ -1507,6 +1513,10 @@ kbd {
 
 .header-topbar {
   min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   padding: 0 16px;
   background: #1a2b3c;
   border-radius: 6px;
@@ -1514,6 +1524,7 @@ kbd {
 
 .topbar-brand {
   gap: 12px;
+  min-width: 0;
 }
 
 .topbar-title {
@@ -1524,7 +1535,25 @@ kbd {
 }
 
 .topbar-status {
+  justify-self: end;
   gap: 0.72rem;
+}
+
+.topbar-center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.topbar-workspace-label {
+  color: #d7e5f2;
+  font-size: 0.79rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-stat {
@@ -1549,6 +1578,7 @@ kbd {
 .workspace-persistence-note {
   margin-top: 4px !important;
   font-size: 0.76rem;
+  color: #5b6d7e;
 }
 
 .daily-state-strip {
@@ -1560,6 +1590,27 @@ kbd {
 
 .daily-strip-summary {
   color: #2f3f51;
+}
+
+.session-controls {
+  margin-top: 10px;
+}
+
+.intake-drawer summary {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4f6173;
+}
+
+.intake-inline-link {
+  font-size: 0.78rem;
+  color: #3d556d;
+}
+
+.intake-help,
+.security-inline {
+  font-size: 0.77rem;
 }
 
 .workbench-layout {
@@ -1640,6 +1691,7 @@ h2 {
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   max-height: 72vh;
+  flex: 1 1 auto;
   background: #f9fbfd;
 }
 
@@ -2123,6 +2175,10 @@ h2 {
     gap: 0.4rem 0.65rem;
   }
 
+  .topbar-center {
+    display: none;
+  }
+
   .topbar-stat {
     font-size: 0.75rem;
   }
@@ -2133,6 +2189,11 @@ h2 {
 
   .workbench-layout {
     grid-template-columns: 1fr;
+  }
+
+  .queue-panel {
+    position: static;
+    max-height: none;
   }
 
   .evidence-bridge-grid {
