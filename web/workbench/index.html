@@ -26,17 +26,35 @@
           <span class="topbar-workspace-label">Exception Workbench</span>
         </div>
         <div class="topbar-status" aria-live="polite">
-          <span class="topbar-stat">Pending: <strong id="metric-exceptions-today">0</strong></span>
-          <span class="topbar-stat">Needs Review: <strong id="metric-needs-review">0</strong></span>
-          <span class="topbar-stat">Resolved: <strong id="metric-resolved">0</strong></span>
+          <span class="topbar-stat topbar-session-state">Workspace Active</span>
           <a class="header-link topbar-shortcut" id="shortcut-help-link" href="#">Keyboard shortcuts</a>
         </div>
       </div>
       <section class="daily-state-strip" aria-live="polite">
-        <div class="daily-strip-title">Today's Scan</div>
+        <div class="daily-strip-title">Today's Exceptions</div>
         <div class="daily-strip-rule" aria-hidden="true"></div>
+        <div class="daily-strip-metrics">
+          <div class="daily-kpi">
+            <span class="daily-kpi-label">Exceptions</span>
+            <strong id="metric-exceptions-today" class="daily-kpi-value">0</strong>
+          </div>
+          <div class="daily-kpi">
+            <span class="daily-kpi-label">Needs Review</span>
+            <strong id="metric-needs-review" class="daily-kpi-value">0</strong>
+          </div>
+          <div class="daily-kpi">
+            <span class="daily-kpi-label">Resolved Today</span>
+            <strong id="metric-resolved" class="daily-kpi-value">0</strong>
+          </div>
+        </div>
+        <div class="daily-strip-inbox-row">
+          <span id="inbox-strip-summary" class="daily-inbox-summary">Inbox: No new files</span>
+          <button id="refresh-inbox" class="secondary inbox-refresh-button" type="button">Refresh Inbox</button>
+        </div>
         <p id="daily-strip-summary" class="daily-strip-summary">0 Exceptions detected across 0 sessions</p>
         <p id="daily-strip-updated" class="daily-strip-updated">Last updated: --</p>
+        <p id="inbox-strip-updated" class="daily-strip-updated">Last check: --</p>
+        <p id="inbox-strip-status" class="status inbox-status"></p>
       </section>
       <p class="workspace-persistence-note">
         Stored locally for this workspace test.
@@ -50,6 +68,69 @@
         <p id="queue-status" class="queue-status-text">Loading queue...</p>
         <div id="queue-alert" class="inline-banner" hidden>Backend not reachable. Start the server and retry.</div>
 
+        <section class="intake-card">
+          <details id="intake-details" class="intake-drawer" open>
+            <summary>Add Session Batch</summary>
+            <div class="intake-drawer-body">
+              <div class="intake-stack">
+                <section class="intake-block">
+                  <h3 class="intake-heading">Batch Intake</h3>
+                  <form id="session-intake-form" novalidate>
+                    <div class="field">
+                      <label for="intake-transactions-csv">Transactions CSV</label>
+                      <p class="help intake-field-hint">Required</p>
+                      <input id="intake-transactions-csv" type="file" accept=".csv,text/csv" required>
+                    </div>
+                    <div class="field">
+                      <label for="intake-receipts">Receipts (optional multiple)</label>
+                      <p class="help intake-field-hint">Optional</p>
+                      <input id="intake-receipts" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" multiple>
+                    </div>
+                    <button id="session-intake-submit" class="primary button-inline-primary" type="submit">Populate Workbench</button>
+                    <p id="session-intake-status" class="status intake-status"></p>
+                    <p class="help intake-help">Runs diagnostic analysis and adds only mismatches to the workbench.</p>
+                  </form>
+                </section>
+
+                <section class="intake-block">
+                  <h3 class="intake-heading">Single Diagnosis</h3>
+                  <form id="single-diagnosis-form" novalidate>
+                    <div class="field">
+                      <label for="single-receipt-file">Receipt upload</label>
+                      <p class="help intake-field-hint">Required</p>
+                      <input id="single-receipt-file" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" required>
+                    </div>
+                    <div class="field">
+                      <label for="single-csv-file">Transactions CSV</label>
+                      <p class="help intake-field-hint">Required</p>
+                      <input id="single-csv-file" type="file" accept=".csv,text/csv" required>
+                      <p class="help">Expected: merchant, date, amount</p>
+                    </div>
+                    <button id="single-diagnosis-submit" class="secondary button-inline-primary" type="submit">Run Single Diagnosis</button>
+                    <p id="single-diagnosis-status" class="status intake-status"></p>
+                    <button id="single-advanced-toggle" class="link-button intake-inline-link" type="button" aria-expanded="false" aria-controls="single-advanced-fields">Advanced</button>
+                    <div id="single-advanced-fields" class="advanced single-advanced-fields" hidden>
+                      <div class="field">
+                        <label for="single-manual-vendor">manual_vendor</label>
+                        <input id="single-manual-vendor" type="text" autocomplete="off" placeholder="Override vendor">
+                      </div>
+                      <div class="field">
+                        <label for="single-manual-date">manual_date</label>
+                        <input id="single-manual-date" type="text" autocomplete="off" placeholder="Override date (YYYY-MM-DD)">
+                      </div>
+                      <div class="field">
+                        <label for="single-manual-total">manual_total</label>
+                        <input id="single-manual-total" type="text" autocomplete="off" placeholder="Override total (e.g. 47.50)">
+                      </div>
+                    </div>
+                  </form>
+                </section>
+              </div>
+              <p class="security-inline">Read-only analysis | No data stored</p>
+            </div>
+          </details>
+        </section>
+
         <div class="queue-controls">
           <div class="field">
             <label for="queue-search">Search</label>
@@ -60,7 +141,7 @@
             <button class="filter-pill active" type="button" data-filter="all">All</button>
             <button class="filter-pill" type="button" data-filter="probable">Probable</button>
             <button class="filter-pill" type="button" data-filter="possible">Possible</button>
-            <button class="filter-pill" type="button" data-filter="no_confident">No Confident</button>
+            <button class="filter-pill" type="button" data-filter="no_confident">No Confidence</button>
           </div>
 
         <div class="queue-control-row">
@@ -103,66 +184,32 @@
           <span id="current-session-label">Session: --</span>
           <button id="clear-current-session" class="secondary" type="button" disabled>Clear Current Session</button>
         </div>
-
-        <section class="intake-card">
-          <details id="new-session-drawer" class="intake-drawer">
-            <summary>New Session Intake</summary>
-            <div class="intake-drawer-body">
-              <form id="session-intake-form" novalidate>
-                <div class="field">
-                  <label for="intake-transactions-csv">Transactions CSV</label>
-                  <input id="intake-transactions-csv" type="file" accept=".csv,text/csv" required>
-                </div>
-                <div class="field">
-                  <label for="intake-receipts">Receipts (optional multiple)</label>
-                  <input id="intake-receipts" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" multiple>
-                </div>
-                <button id="session-intake-submit" class="primary button-inline-primary" type="submit">Populate Workbench</button>
-                <p id="session-intake-status" class="status intake-status"></p>
-                <p class="help intake-help">Runs diagnostic analysis and adds only mismatches to the workbench.</p>
-                <p class="security-inline">Read-only analysis | No data stored</p>
-              </form>
-              <button id="single-diagnosis-toggle" class="link-button intake-inline-link" type="button" aria-expanded="false" aria-controls="single-diagnosis-panel">
-                Single diagnosis mode
-              </button>
-              <section id="single-diagnosis-panel" class="single-diagnosis-panel" hidden>
-                <form id="single-diagnosis-form" novalidate>
-                  <div class="field">
-                    <label for="single-receipt-file">Receipt upload</label>
-                    <input id="single-receipt-file" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" required>
-                  </div>
-                  <div class="field">
-                    <label for="single-csv-file">Transactions CSV</label>
-                    <input id="single-csv-file" type="file" accept=".csv,text/csv" required>
-                    <p class="help">Expected: merchant, date, amount</p>
-                  </div>
-                  <button id="single-diagnosis-submit" class="secondary button-inline-primary" type="submit">Run Single Diagnosis</button>
-                  <p id="single-diagnosis-status" class="status intake-status"></p>
-                  <button id="single-advanced-toggle" class="link-button intake-inline-link" type="button" aria-expanded="false" aria-controls="single-advanced-fields">Advanced</button>
-                  <div id="single-advanced-fields" class="advanced single-advanced-fields" hidden>
-                    <div class="field">
-                      <label for="single-manual-vendor">manual_vendor</label>
-                      <input id="single-manual-vendor" type="text" autocomplete="off" placeholder="Override vendor">
-                    </div>
-                    <div class="field">
-                      <label for="single-manual-date">manual_date</label>
-                      <input id="single-manual-date" type="text" autocomplete="off" placeholder="Override date (YYYY-MM-DD)">
-                    </div>
-                    <div class="field">
-                      <label for="single-manual-total">manual_total</label>
-                      <input id="single-manual-total" type="text" autocomplete="off" placeholder="Override total (e.g. 47.50)">
-                    </div>
-                  </div>
-                </form>
-              </section>
-            </div>
-          </details>
-        </section>
       </section>
 
       <section class="panel detail-panel">
         <div id="detail-empty" class="detail-empty">
-          Select a case to begin investigation.
+          <p class="detail-empty-title">Select a case to begin investigation.</p>
+          <p class="detail-empty-subtitle">Review queue items from left to right: status, diagnosis, evidence, then decision.</p>
+          <div class="detail-empty-stats">
+            <div class="detail-empty-stat">
+              <span class="detail-empty-stat-label">Pending</span>
+              <strong id="detail-empty-pending">0</strong>
+            </div>
+            <div class="detail-empty-stat">
+              <span class="detail-empty-stat-label">Needs Review</span>
+              <strong id="detail-empty-needs-review">0</strong>
+            </div>
+            <div class="detail-empty-stat">
+              <span class="detail-empty-stat-label">Resolved</span>
+              <strong id="detail-empty-resolved">0</strong>
+            </div>
+          </div>
+          <div class="detail-empty-preview">
+            <p class="detail-empty-preview-title">Queue preview</p>
+            <ul id="detail-empty-preview-list" class="detail-empty-preview-list">
+              <li>No active exceptions.</li>
+            </ul>
+          </div>
         </div>
 
         <section id="detail-view" hidden>
@@ -180,47 +227,6 @@
             <h3>Diagnosis Statement</h3>
             <p id="detail-summary" class="detail-summary-text">Summary will appear here.</p>
             <p id="detail-next-checks" class="detail-next-checks">Next checks: --</p>
-          </section>
-
-          <section class="subsection evidence-bridge-section" id="detail-evidence-bridge-section">
-            <h3>Evidence Bridge</h3>
-            <div class="evidence-bridge-grid">
-              <div class="evidence-bridge-column">
-                <h4>OCR Receipt Data</h4>
-                <dl class="bridge-kv">
-                  <div class="bridge-row" id="detail-bridge-row-merchant">
-                    <dt>merchant</dt>
-                    <dd id="detail-bridge-receipt-merchant">--</dd>
-                  </div>
-                  <div class="bridge-row" id="detail-bridge-row-amount">
-                    <dt>amount</dt>
-                    <dd id="detail-bridge-receipt-amount">--</dd>
-                  </div>
-                  <div class="bridge-row" id="detail-bridge-row-date">
-                    <dt>date</dt>
-                    <dd id="detail-bridge-receipt-date">--</dd>
-                  </div>
-                </dl>
-              </div>
-              <div class="evidence-bridge-column">
-                <h4>Bank Transaction Data</h4>
-                <dl class="bridge-kv">
-                  <div class="bridge-row" id="detail-bridge-row-merchant-bank">
-                    <dt>merchant</dt>
-                    <dd id="detail-bridge-bank-merchant">--</dd>
-                  </div>
-                  <div class="bridge-row" id="detail-bridge-row-amount-bank">
-                    <dt>amount</dt>
-                    <dd id="detail-bridge-bank-amount">--</dd>
-                  </div>
-                  <div class="bridge-row" id="detail-bridge-row-date-bank">
-                    <dt>date</dt>
-                    <dd id="detail-bridge-bank-date">--</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-            <p class="bridge-note">Amber highlights mark fields with meaningful variance.</p>
           </section>
 
           <section class="subsection" id="detail-evidence-section">

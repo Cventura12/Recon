@@ -6,6 +6,7 @@
   const submitBtn = document.getElementById("submit-btn");
   const openWorkbenchLink = document.getElementById("open-workbench-link");
   const openInWorkbenchBtn = document.getElementById("open-in-workbench");
+  
 
   const aiWordingToggle = document.getElementById("ai-wording");
   const advancedToggle = document.getElementById("advanced-toggle");

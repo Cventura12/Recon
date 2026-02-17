@@ -244,6 +244,85 @@ Operator-facing copy intentionally stays honest:
 
 - `Stored locally for this workspace test.`
 
+### Deploy with Neon on Railway
+
+Recon can persist workspace state to Neon PostgreSQL when `DATABASE_URL` is set.
+
+- Backend selection:
+  - `DATABASE_URL` (or `NEON_DATABASE_URL`) set -> PostgreSQL store
+  - otherwise -> local JSON file (`data/workspace.json`)
+- Table used:
+  - `workspace_state` (auto-created on startup)
+  - single row keyed by `workspace_id='default'`
+
+Railway environment variables:
+
+- `DATABASE_URL` = your Neon pooled connection string
+- `PORT` = Railway-provided port (Railway injects this automatically)
+- optional inbox flags:
+  - `RECON_INBOX_PATH`
+  - `INBOX_ARCHIVE_PATH`
+  - `INBOX_MAX_FILES_PER_RUN`
+  - `INBOX_POLL_ON_START`
+
+Notes for Railway:
+
+- Workspace persistence is durable in Neon.
+- `recon_inbox/` is filesystem-based and may be ephemeral on Railway unless you attach persistent storage.
+- Recon remains read-only analysis: no ERP write-back, no posting actions.
+
+## Recon Inbox Live Queue (Phase 15)
+
+Phase 15 adds folder-drop inbox intake so the Workbench can auto-populate on open.
+
+- Inbox path (default): `./recon_inbox`
+- Archive path (default): `./recon_inbox/_processed`
+- Manual trigger endpoint: `POST /inbox/ingest`
+- Workbench UI trigger: `Refresh Inbox` button in the daily strip
+
+### Supported inbox files
+
+- Transactions: `.csv` (newest unprocessed CSV is selected per run)
+- Receipts: `.png`, `.jpg`, `.jpeg`, `.pdf`, `.tiff`, `.tif`, `.bmp`, `.webp`
+
+### Batch selection behavior
+
+- Scanner inspects only top-level files in `recon_inbox/`
+- Hidden files and `_processed/` contents are ignored
+- If no valid batch:
+  - `EMPTY_INBOX` -> no new supported files
+  - `MISSING_CSV` -> receipts exist but no transactions CSV
+- If CSV exists and receipts are missing, intake still runs (`receipts_count=0`)
+- Processed files are moved to:
+  - `recon_inbox/_processed/<batch_id>/`
+
+### Idempotency (no duplicate reprocessing)
+
+- Recon stores a processed manifest:
+  - `recon_inbox/_processed/manifest.json`
+- Signature format (v1): `filename + size + mtime_ns`
+- Repeated inbox checks skip files already in manifest.
+
+### Configuration
+
+- `RECON_INBOX_PATH` (default `./recon_inbox`)
+- `INBOX_ARCHIVE_PATH` (default `./recon_inbox/_processed`)
+- `INBOX_MAX_FILES_PER_RUN` (default `50`)
+- `INBOX_POLL_ON_START` (default `true`)
+
+### Local run + test
+
+- Start API:
+  - `uvicorn phase9_api:app --host 0.0.0.0 --port 8000`
+- Run inbox tests:
+  - `python test_phase15_inbox.py`
+
+Explicit scope remains unchanged:
+
+- Read-only ingestion only
+- No ERP integration
+- No write-back/execution automation
+
 ## Project Structure
 
 ```text
@@ -288,6 +367,7 @@ receipt-diagnostic-agent/
 - [x] Phase 12: Resolution + Decision Notes
 - [x] Phase 13: Local Memory Indicators
 - [x] Phase 14: Workspace Persistence
+- [x] Phase 15: Recon Inbox Live Queue
 
 ## What This Is NOT
 

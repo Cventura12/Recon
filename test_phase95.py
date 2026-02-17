@@ -134,15 +134,38 @@ def main() -> None:
     # Category 3: UI containers/toggles for grounding viewer
     # --------------------------------------------------------------
     print("\n  UI Grounding Controls:")
-    html = (base_dir / "web" / "index.html").read_text(encoding="utf-8")
-    js = (base_dir / "web" / "app.js").read_text(encoding="utf-8")
+    # Phase 14+ architecture keeps investigation UI in the workbench page.
+    # Fall back to legacy single-diagnosis page if needed.
+    workbench_html_path = base_dir / "web" / "workbench" / "index.html"
+    legacy_html_path = base_dir / "web" / "index.html"
+    html_path = workbench_html_path if workbench_html_path.exists() else legacy_html_path
+    html = html_path.read_text(encoding="utf-8")
 
-    check("index includes grounding toggle", 'id="grounding-toggle"' in html)
-    check("index includes viewer container", 'id="receipt-viewer-container"' in html)
-    check("index includes overlay layer", 'id="overlay-layer"' in html)
-    check("index includes field pills", 'data-field="vendor"' in html and 'data-field="date"' in html and 'data-field="total"' in html)
-    check("app.js includes scaleBoundingBox()", "function scaleBoundingBox" in js)
-    check("app.js binds grounding interactions", "bindGroundingInteractions" in js)
+    legacy_js = (base_dir / "web" / "app.js").read_text(encoding="utf-8")
+    workbench_js = (base_dir / "web" / "workbench" / "workbench.js").read_text(encoding="utf-8")
+    js_bundle = "\n".join([legacy_js, workbench_js])
+
+    has_toggle = ('id="grounding-toggle"' in html) or ('id="detail-grounding-toggle"' in html)
+    has_container = (
+        'id="receipt-viewer-container"' in html
+        or 'id="detail-receipt-viewer-container"' in html
+    )
+    has_overlay = ('id="overlay-layer"' in html) or ('id="detail-overlay-layer"' in html)
+    has_pills = (
+        'data-field="vendor"' in html
+        and 'data-field="date"' in html
+        and 'data-field="total"' in html
+    )
+
+    check("index includes grounding toggle", has_toggle)
+    check("index includes viewer container", has_container)
+    check("index includes overlay layer", has_overlay)
+    check("index includes field pills", has_pills)
+    check("app.js includes scaleBoundingBox()", "function scaleBoundingBox" in js_bundle)
+    check(
+        "app.js binds grounding interactions",
+        ("bindGroundingInteractions" in js_bundle) or ("bindGroundingEvents" in js_bundle),
+    )
 
     print(f"\n{LINE * 62}")
     print(f"  Results: {passed}/{passed + failed} passed")

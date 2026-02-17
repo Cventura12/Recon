@@ -33,11 +33,12 @@ from pydantic import ValidationError
 from diagnose import diagnose
 from explain import format_explanation_json
 from extract import extract_receipt
+from inbox import InboxScanner
 from logging_config import get_logger, setup_logging
 from main import load_transactions
 from match import find_matches
 from models import ReceiptData
-from workspace_store import WorkspaceState, WorkspaceStore
+from workspace_store import PostgresWorkspaceStore, WorkspaceState, WorkspaceStore
 
 logger = get_logger("phase9-api")
 
@@ -72,6 +73,35 @@ WORKBENCH_EXCEPTION_STATES = {
     "POSSIBLE_MATCH",
     "NO_CONFIDENT_MATCH",
 }
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        logger.warning(
+            "env_int_parse_warning | key=%s | value=%s | fallback=%s",
+            name,
+            raw,
+            default,
+        )
+        return default
+
+
+RECON_INBOX_PATH = os.getenv("RECON_INBOX_PATH", "./recon_inbox")
+INBOX_ARCHIVE_PATH = os.getenv("INBOX_ARCHIVE_PATH", "./recon_inbox/_processed")
+INBOX_MAX_FILES_PER_RUN = max(1, _env_int("INBOX_MAX_FILES_PER_RUN", 50))
+INBOX_POLL_ON_START = _env_bool("INBOX_POLL_ON_START", True)
 
 
 class ExceptionQueue:
@@ -323,10 +353,25 @@ class ExceptionQueue:
             return sessions
 
 
+def _build_workspace_store() -> WorkspaceStore | PostgresWorkspaceStore:
+    """Select workspace backend: PostgreSQL (Neon) when DATABASE_URL is set, else local JSON."""
+    database_url = os.getenv("DATABASE_URL", "").strip() or os.getenv("NEON_DATABASE_URL", "").strip()
+    if database_url:
+        logger.info("workspace_store_init | backend=postgres")
+        return PostgresWorkspaceStore(database_url=database_url)
+    logger.info("workspace_store_init | backend=file")
+    return WorkspaceStore()
+
+
 exception_queue = ExceptionQueue()
-workspace_store = WorkspaceStore()
+workspace_store = _build_workspace_store()
 workspace_state = workspace_store.load_workspace()
 exception_queue.load_records(workspace_state.workbench_queue)
+inbox_scanner = InboxScanner(
+    inbox_path=RECON_INBOX_PATH,
+    archive_path=INBOX_ARCHIVE_PATH,
+    max_files_per_run=INBOX_MAX_FILES_PER_RUN,
+)
 
 
 def _workspace_snapshot() -> WorkspaceState:
@@ -676,6 +721,101 @@ def _run_pipeline_for_receipt(
     return _enrich_payload_ui(payload, matches=matches, receipt_preview=receipt_preview), matches
 
 
+def _run_session_intake_from_dataframe(
+    transactions_df: pd.DataFrame,
+    receipt_paths: list[Path],
+    session_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """Run deterministic session intake from preloaded transaction rows + optional receipt files."""
+    active_session_id = session_id or _generate_session_id()
+    total_processed = 0
+    exceptions_added = 0
+
+    for row_position, (idx, row) in enumerate(transactions_df.iterrows()):
+        total_processed += 1
+        try:
+            if row_position < len(receipt_paths):
+                extracted = extract_receipt(str(receipt_paths[row_position]))
+                payload, _matches = _run_pipeline_for_receipt(
+                    receipt=extracted,
+                    transactions_df=transactions_df,
+                    receipt_preview=_default_receipt_preview(),
+                )
+            else:
+                payload = _build_no_match_payload_from_row(row)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Session intake failed at row {idx}: {exc}",
+            ) from exc
+
+        match_state = exception_queue._status_from_payload(payload)
+        if match_state in WORKBENCH_EXCEPTION_STATES:
+            exception_queue.add_payload(payload=payload, session_id=active_session_id)
+            exceptions_added += 1
+
+    if exceptions_added > 0:
+        _persist_workspace_snapshot()
+
+    return {
+        "session_id": active_session_id,
+        "total_processed": total_processed,
+        "exceptions_added": exceptions_added,
+    }
+
+
+def _ingest_recon_inbox() -> dict[str, Any]:
+    """Scan recon inbox and run one synchronous ingestion pass when a valid batch exists."""
+    last_checked = datetime.now(timezone.utc).isoformat()
+    scan_result = inbox_scanner.scan_batch()
+    status = str(scan_result.get("status") or "NO_BATCH")
+
+    if status != "BATCH_FOUND":
+        return {
+            "inbox_status": "NO_BATCH",
+            "reason_code": str(scan_result.get("reason_code") or "EMPTY_INBOX"),
+            "last_checked": last_checked,
+            "new_files_count": int(scan_result.get("new_files_count") or 0),
+            "session_id": None,
+            "new_exceptions_count": 0,
+            "processed_files": [],
+        }
+
+    batch = scan_result.get("batch") or {}
+    csv_path = Path(str(batch.get("csv_path") or ""))
+    receipt_paths = [
+        Path(str(path))
+        for path in (batch.get("receipt_paths") or [])
+        if str(path).strip()
+    ]
+
+    if not csv_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Inbox batch CSV not found: {csv_path}",
+        )
+
+    transactions_df = load_transactions(str(csv_path))
+    result = _run_session_intake_from_dataframe(
+        transactions_df=transactions_df,
+        receipt_paths=receipt_paths,
+    )
+    processed_files = inbox_scanner.archive_processed_batch(batch)
+
+    return {
+        "inbox_status": "INGESTED",
+        "reason_code": None,
+        "batch_id": str(batch.get("batch_id") or ""),
+        "session_id": result["session_id"],
+        "total_processed": result["total_processed"],
+        "new_exceptions_count": result["exceptions_added"],
+        "new_files_count": int(scan_result.get("new_files_count") or 0),
+        "receipts_count": len(receipt_paths),
+        "processed_files": processed_files,
+        "last_checked": last_checked,
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Service health check."""
@@ -820,41 +960,46 @@ async def workbench_session_intake(
                     detail=f"Failed to read receipt file '{safe_name}': {exc}",
                 ) from exc
 
-        session_id = _generate_session_id()
-        total_processed = 0
-        exceptions_added = 0
+        return _run_session_intake_from_dataframe(
+            transactions_df=transactions_df,
+            receipt_paths=receipt_paths,
+        )
 
-        for row_position, (idx, row) in enumerate(transactions_df.iterrows()):
-            total_processed += 1
-            try:
-                if row_position < len(receipt_paths):
-                    extracted = extract_receipt(str(receipt_paths[row_position]))
-                    payload, _matches = _run_pipeline_for_receipt(
-                        receipt=extracted,
-                        transactions_df=transactions_df,
-                        receipt_preview=_default_receipt_preview(),
-                    )
-                else:
-                    payload = _build_no_match_payload_from_row(row)
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Session intake failed at row {idx}: {exc}",
-                ) from exc
 
-            match_state = exception_queue._status_from_payload(payload)
-            if match_state in WORKBENCH_EXCEPTION_STATES:
-                exception_queue.add_payload(payload=payload, session_id=session_id)
-                exceptions_added += 1
-
-        if exceptions_added > 0:
-            _persist_workspace_snapshot()
-
-        return {
-            "session_id": session_id,
-            "total_processed": total_processed,
-            "exceptions_added": exceptions_added,
-        }
+@app.post("/inbox/ingest")
+def inbox_ingest() -> dict[str, Any]:
+    """Scan Recon Inbox folder and ingest one deterministic batch if available."""
+    try:
+        result = _ingest_recon_inbox()
+        if result.get("inbox_status") == "INGESTED":
+            logger.info(
+                "inbox_ingest_complete | batch_id=%s | session_id=%s | processed_files=%s | new_exceptions=%s",
+                result.get("batch_id"),
+                result.get("session_id"),
+                len(result.get("processed_files") or []),
+                result.get("new_exceptions_count"),
+            )
+        else:
+            logger.info(
+                "inbox_ingest_no_batch | reason_code=%s | new_files=%s",
+                result.get("reason_code"),
+                result.get("new_files_count"),
+            )
+        return result
+    except HTTPException:
+        raise
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error(
+            "inbox_ingest_error | error_type=%s | error=%s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Inbox ingestion failed.") from exc
 
 
 @app.get("/workbench/{item_id}")
@@ -943,6 +1088,29 @@ async def diagnose_endpoint(
                 status_code=500,
                 detail="Unexpected server error while processing diagnosis.",
             ) from exc
+
+
+@app.on_event("startup")
+def _startup_inbox_poll() -> None:
+    """Optional one-shot inbox poll on API startup (Phase 15)."""
+    if not INBOX_POLL_ON_START:
+        logger.info("inbox_startup_poll_skipped | reason=disabled")
+        return
+    try:
+        result = _ingest_recon_inbox()
+        logger.info(
+            "inbox_startup_poll | status=%s | reason_code=%s | session_id=%s | new_exceptions=%s",
+            result.get("inbox_status"),
+            result.get("reason_code"),
+            result.get("session_id"),
+            result.get("new_exceptions_count"),
+        )
+    except Exception as exc:
+        logger.warning(
+            "inbox_startup_poll_warning | error_type=%s | error=%s",
+            type(exc).__name__,
+            exc,
+        )
 
 
 if __name__ == "__main__":

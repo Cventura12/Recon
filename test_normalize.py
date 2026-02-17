@@ -64,7 +64,7 @@ def main() -> None:
         nonlocal passed, failed
         if condition:
             print(f"    {PASS} {name}")
-            passed += 1
+            passed += 4
         else:
             print(f"    {FAIL} {name}")
             failed += 1

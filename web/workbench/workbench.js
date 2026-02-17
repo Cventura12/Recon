@@ -6,7 +6,7 @@
   const WorkspaceSync = window.WorkspaceSync;
   const WORKSPACE_ID = "default";
   const SAVE_DEBOUNCE_MS = 800;
-  const PANEL_FADE_OUT_MS = 120;
+  const PANEL_FADE_OUT_MS = 90;
   const PANEL_FADE_IN_MS = 120;
   const THINKING_CUE_MS = 800;
   const AUDIT_COPY_FLASH_MS = 150;
@@ -24,9 +24,6 @@
   const intakeReceiptsEl = document.getElementById("intake-receipts");
   const intakeSubmitBtn = document.getElementById("session-intake-submit");
   const intakeStatusEl = document.getElementById("session-intake-status");
-  const newSessionDrawerEl = document.getElementById("new-session-drawer");
-  const singleDiagnosisToggleEl = document.getElementById("single-diagnosis-toggle");
-  const singleDiagnosisPanelEl = document.getElementById("single-diagnosis-panel");
   const singleDiagnosisFormEl = document.getElementById("single-diagnosis-form");
   const singleReceiptFileEl = document.getElementById("single-receipt-file");
   const singleCsvFileEl = document.getElementById("single-csv-file");
@@ -45,8 +42,16 @@
   const metricResolvedEl = document.getElementById("metric-resolved");
   const dailyStripSummaryEl = document.getElementById("daily-strip-summary");
   const dailyStripUpdatedEl = document.getElementById("daily-strip-updated");
+  const inboxStripSummaryEl = document.getElementById("inbox-strip-summary");
+  const inboxStripUpdatedEl = document.getElementById("inbox-strip-updated");
+  const inboxStripStatusEl = document.getElementById("inbox-strip-status");
+  const refreshInboxBtn = document.getElementById("refresh-inbox");
 
   const detailEmptyEl = document.getElementById("detail-empty");
+  const detailEmptyPendingEl = document.getElementById("detail-empty-pending");
+  const detailEmptyNeedsReviewEl = document.getElementById("detail-empty-needs-review");
+  const detailEmptyResolvedEl = document.getElementById("detail-empty-resolved");
+  const detailEmptyPreviewListEl = document.getElementById("detail-empty-preview-list");
   const detailPanelEl = document.querySelector(".detail-panel");
   const detailViewEl = document.getElementById("detail-view");
   const detailSummarySectionEl = document.getElementById("detail-summary-section");
@@ -133,7 +138,6 @@
     toastTimer: null,
     modalOpen: false,
     currentSessionId: null,
-    singleModeOpen: false,
     saveStatus: "Saved",
     workspaceLoaded: false,
     workspaceSaver: null,
@@ -147,6 +151,13 @@
     recentSessionTimer: null,
     lastQueueUpdatedAt: null,
     lastSessionCount: 0,
+    inbox: {
+      status: "UNKNOWN",
+      reasonCode: "",
+      newFilesCount: 0,
+      lastCheck: null,
+      statusMessage: "",
+    },
     detailGrounding: {
       fieldMap: null,
       activeField: null,
@@ -379,7 +390,7 @@
     if (stateText === "POSSIBLE_MATCH" || stateText === "POSSIBLE") {
       return "POSSIBLE";
     }
-    return "NO CONFIDENT";
+    return "NO CONFIDENCE";
   }
 
   function queueConfidenceTone(confidencePct) {
@@ -397,15 +408,15 @@
   }
 
   function detailBadgeState(payload) {
-    if (payload && payload.ui && payload.ui.match_state_badge) {
-      const badge = String(payload.ui.match_state_badge || "").toUpperCase();
-      if (badge === "NO CONFIDENT") {
-        return "NO MATCH";
-      }
-      return badge;
-    }
     if (!payload || payload.status === "no_match") {
       return "NO MATCH";
+    }
+    if (payload && payload.ui && payload.ui.match_state_badge) {
+      const badge = String(payload.ui.match_state_badge || "").toUpperCase();
+      if (badge === "NO CONFIDENT" || badge === "NO CONFIDENCE") {
+        return "NO CONFIDENCE";
+      }
+      return badge;
     }
     const confidence = Number(payload.confidence || 0);
     if (confidence >= 80) {
@@ -414,7 +425,7 @@
     if (confidence >= 50) {
       return "POSSIBLE";
     }
-    return "NO MATCH";
+    return "NO CONFIDENCE";
   }
 
   function applyDetailBadge(stateText) {
@@ -488,6 +499,25 @@
     singleDiagnosisStatusEl.classList.toggle("error", !!isError);
   }
 
+  function inboxReasonMessage(reasonCode) {
+    const reason = String(reasonCode || "").toUpperCase();
+    if (reason === "MISSING_CSV") {
+      return "Waiting for transactions CSV";
+    }
+    if (reason === "MISSING_RECEIPTS") {
+      return "Waiting for receipts";
+    }
+    return "No new files";
+  }
+
+  function setInboxStripStatus(message, isError) {
+    if (!inboxStripStatusEl) {
+      return;
+    }
+    inboxStripStatusEl.textContent = message || "";
+    inboxStripStatusEl.classList.toggle("error", !!isError);
+  }
+
   function updateSessionLabel() {
     const label = state.currentSessionId ? `Session: ${state.currentSessionId}` : "Session: --";
     currentSessionLabelEl.textContent = label;
@@ -520,7 +550,7 @@
 
     if (dailyStripSummaryEl) {
       if (totalItems === 0) {
-        dailyStripSummaryEl.textContent = "All clear - no mismatches detected.";
+        dailyStripSummaryEl.textContent = "All clear — no mismatches detected.";
         dailyStripSummaryEl.classList.add("is-clear");
       } else {
         const exWord = exceptionsToday === 1 ? "Exception" : "Exceptions";
@@ -535,26 +565,73 @@
       const stamp = state.lastQueueUpdatedAt ? formatTimeShort(state.lastQueueUpdatedAt) : "--";
       dailyStripUpdatedEl.textContent = `Last updated: ${stamp}`;
     }
+
+    if (inboxStripSummaryEl) {
+      if (state.inbox.status === "INGESTED") {
+        const files = Number(state.inbox.newFilesCount || 0);
+        const fileWord = files === 1 ? "file" : "files";
+        inboxStripSummaryEl.textContent = `Inbox: ${files} new ${fileWord} since last check`;
+      } else if (state.inbox.status === "NO_BATCH") {
+        inboxStripSummaryEl.textContent = `Inbox: ${inboxReasonMessage(state.inbox.reasonCode)}`;
+      } else {
+        inboxStripSummaryEl.textContent = "Inbox: Not checked";
+      }
+    }
+
+    if (inboxStripUpdatedEl) {
+      const checkStamp = state.inbox.lastCheck ? formatTimeShort(state.inbox.lastCheck) : "--";
+      inboxStripUpdatedEl.textContent = `Last check: ${checkStamp}`;
+    }
+  }
+
+  function renderDetailEmptyState() {
+    const total = state.queueItems.length;
+    let resolved = 0;
+    state.queueItems.forEach(function (item) {
+      if (getResolution(item.id) !== "unreviewed") {
+        resolved += 1;
+      }
+    });
+    const needsReview = Math.max(0, total - resolved);
+
+    if (detailEmptyPendingEl) {
+      detailEmptyPendingEl.textContent = String(total);
+    }
+    if (detailEmptyNeedsReviewEl) {
+      detailEmptyNeedsReviewEl.textContent = String(needsReview);
+    }
+    if (detailEmptyResolvedEl) {
+      detailEmptyResolvedEl.textContent = String(resolved);
+    }
+
+    if (!detailEmptyPreviewListEl) {
+      return;
+    }
+
+    detailEmptyPreviewListEl.innerHTML = "";
+    const previewItems = (state.visibleItems.length ? state.visibleItems : state.queueItems).slice(0, 3);
+    if (!previewItems.length) {
+      const emptyLi = document.createElement("li");
+      emptyLi.textContent = "No active exceptions.";
+      detailEmptyPreviewListEl.appendChild(emptyLi);
+      return;
+    }
+
+    previewItems.forEach(function (item) {
+      const li = document.createElement("li");
+      const status = queueBadgeText(item.match_state);
+      const merchant = String(item.merchant || "--");
+      const amount = formatCurrency(item.amount);
+      li.textContent = `${status} • ${merchant} • ${amount}`;
+      detailEmptyPreviewListEl.appendChild(li);
+    });
   }
 
   function syncDetailEmptyState() {
     if (!detailEmptyEl || !detailViewEl || !detailViewEl.hidden) {
       return;
     }
-    detailEmptyEl.textContent = "Select a case to begin investigation.";
-  }
-
-  function setSingleModeOpen(open) {
-    state.singleModeOpen = !!open;
-    if (singleDiagnosisPanelEl) {
-      singleDiagnosisPanelEl.hidden = !state.singleModeOpen;
-    }
-    if (singleDiagnosisToggleEl) {
-      singleDiagnosisToggleEl.setAttribute("aria-expanded", String(state.singleModeOpen));
-      singleDiagnosisToggleEl.textContent = state.singleModeOpen
-        ? "Hide single diagnosis mode"
-        : "Single diagnosis mode";
-    }
+    renderDetailEmptyState();
   }
 
   function setSingleAdvancedVisible(visible) {
@@ -1092,6 +1169,23 @@
     return response.json();
   }
 
+  async function runInboxIngest() {
+    const response = await fetch(`${apiBase()}/inbox/ingest`, { method: "POST" });
+    if (!response.ok) {
+      let detail = `Inbox refresh failed (${response.status})`;
+      try {
+        const body = await response.json();
+        if (body && body.detail) {
+          detail = String(body.detail);
+        }
+      } catch (_unused) {
+        // Keep default detail.
+      }
+      throw new Error(detail);
+    }
+    return response.json();
+  }
+
   async function addWorkbenchItem(payload) {
     const response = await fetch(`${apiBase()}/workbench/add`, {
       method: "POST",
@@ -1181,7 +1275,6 @@
       } else {
         await applyRoute();
       }
-      setSingleModeOpen(false);
     } catch (error) {
       const message = error && error.message ? error.message : "Failed to run single diagnosis.";
       setSingleDiagnosisStatus(message, true);
@@ -1712,6 +1805,9 @@
     );
     ensureSelectedVisible();
     setQueueRows(state.visibleItems);
+    if (detailViewEl && detailViewEl.hidden) {
+      renderDetailEmptyState();
+    }
   }
 
   async function openDetail(itemId, pushRoute) {
@@ -1971,6 +2067,48 @@
     }
   }
 
+  async function refreshInbox(options) {
+    const opts = options && typeof options === "object" ? options : {};
+    if (refreshInboxBtn) {
+      refreshInboxBtn.disabled = true;
+    }
+    if (!opts.silent) {
+      setInboxStripStatus("Checking inbox...", false);
+    }
+    try {
+      const result = await runInboxIngest();
+      state.inbox.status = String(result.inbox_status || "NO_BATCH");
+      state.inbox.reasonCode = String(result.reason_code || "");
+      state.inbox.newFilesCount = Number(result.new_files_count || 0);
+      state.inbox.lastCheck = result.last_checked ? new Date(result.last_checked) : new Date();
+      updateMorningSurface();
+
+      if (state.inbox.status === "INGESTED") {
+        const exceptions = Number(result.new_exceptions_count || 0);
+        const files = Number(result.new_files_count || 0);
+        const fileWord = files === 1 ? "file" : "files";
+        setInboxStripStatus(`Inbox intake complete. ${files} ${fileWord} processed.`, false);
+        showToast(`${exceptions} exceptions added to workbench`);
+        state.currentSessionId = result.session_id || state.currentSessionId;
+        updateSessionLabel();
+        await refreshQueue();
+        await applyRoute();
+        scheduleWorkspaceSave("inbox_ingest");
+      } else if (!opts.silent) {
+        setInboxStripStatus(inboxReasonMessage(state.inbox.reasonCode), false);
+      } else {
+        setInboxStripStatus("", false);
+      }
+    } catch (error) {
+      const message = error && error.message ? error.message : "Inbox refresh failed.";
+      setInboxStripStatus(message, true);
+    } finally {
+      if (refreshInboxBtn) {
+        refreshInboxBtn.disabled = false;
+      }
+    }
+  }
+
   async function applyRoute() {
     const routeId = parseRouteId();
     if (!routeId) {
@@ -2048,11 +2186,6 @@
   }
 
   function bindSingleDiagnosisEvents() {
-    if (singleDiagnosisToggleEl) {
-      singleDiagnosisToggleEl.addEventListener("click", function () {
-        setSingleModeOpen(!state.singleModeOpen);
-      });
-    }
     if (singleAdvancedToggleEl) {
       singleAdvancedToggleEl.addEventListener("click", function () {
         setSingleAdvancedVisible(singleAdvancedFieldsEl ? singleAdvancedFieldsEl.hidden : true);
@@ -2146,6 +2279,11 @@
   function bindActions() {
     sessionIntakeFormEl.addEventListener("submit", handleSessionIntakeSubmit);
     clearCurrentSessionBtn.addEventListener("click", handleClearCurrentSession);
+    if (refreshInboxBtn) {
+      refreshInboxBtn.addEventListener("click", function () {
+        refreshInbox({ silent: false });
+      });
+    }
 
     backToWorkbenchBtn.addEventListener("click", function () {
       goToList(true);
@@ -2242,7 +2380,7 @@
     setActiveFilterPill();
     setIntakeStatus("", false);
     setSingleDiagnosisStatus("", false);
-    setSingleModeOpen(false);
+    setInboxStripStatus("", false);
     setSingleAdvancedVisible(false);
     setWorkspaceSaveStatus("Saved", false);
     updateSessionLabel();
@@ -2275,6 +2413,7 @@
     bindActions();
 
     await refreshQueue();
+    await refreshInbox({ silent: true });
     await applyRoute();
   }
 

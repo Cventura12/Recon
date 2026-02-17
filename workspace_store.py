@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -163,6 +164,112 @@ class WorkspaceStore:
             logger.warning(
                 "workspace_reset_warning | path=%s | error_type=%s | error=%s",
                 self.path,
+                type(exc).__name__,
+                exc,
+            )
+
+
+class PostgresWorkspaceStore:
+    """PostgreSQL-backed workspace store for Neon/Railway deployments."""
+
+    def __init__(self, database_url: str, table_name: str = "workspace_state") -> None:
+        self.database_url = str(database_url or "").strip()
+        if not self.database_url:
+            raise ValueError("database_url is required for PostgresWorkspaceStore.")
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", table_name):
+            raise ValueError("table_name must be a valid SQL identifier.")
+        self.table_name = table_name
+        self._psycopg = self._import_psycopg()
+
+    @staticmethod
+    def default_workspace() -> WorkspaceState:
+        return WorkspaceState(workspace_id="default")
+
+    @staticmethod
+    def _import_psycopg():
+        try:
+            import psycopg  # type: ignore
+
+            return psycopg
+        except Exception as exc:
+            raise RuntimeError(
+                "PostgreSQL store requires psycopg. Install with: pip install psycopg[binary]"
+            ) from exc
+
+    def _connect(self):
+        return self._psycopg.connect(self.database_url, autocommit=True)
+
+    def _ensure_table(self, conn) -> None:
+        query = (
+            f"CREATE TABLE IF NOT EXISTS {self.table_name} ("
+            "workspace_id TEXT PRIMARY KEY,"
+            "payload JSONB NOT NULL,"
+            "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+            ")"
+        )
+        with conn.cursor() as cur:
+            cur.execute(query)
+
+    def load_workspace(self) -> WorkspaceState:
+        """Load workspace from PostgreSQL, returning defaults when missing/unreadable."""
+        try:
+            with self._connect() as conn:
+                self._ensure_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"SELECT payload FROM {self.table_name} WHERE workspace_id = %s",
+                        ("default",),
+                    )
+                    row = cur.fetchone()
+
+            if not row:
+                return self.default_workspace()
+
+            payload = row[0]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+
+            state = WorkspaceState.model_validate(payload)
+            state.workbench_queue = state.workbench_queue or []
+            return state
+        except Exception as exc:
+            logger.warning(
+                "workspace_pg_load_warning | error_type=%s | error=%s | fallback='default'",
+                type(exc).__name__,
+                exc,
+            )
+            return self.default_workspace()
+
+    def save_workspace(self, state: WorkspaceState | dict[str, Any]) -> None:
+        """Persist workspace snapshot into PostgreSQL."""
+        normalized = WorkspaceState.model_validate(state)
+        normalized.updated_at = datetime.now(timezone.utc).isoformat()
+        payload = normalized.model_dump(mode="json")
+
+        query = (
+            f"INSERT INTO {self.table_name} (workspace_id, payload, updated_at) "
+            "VALUES (%s, %s::jsonb, NOW()) "
+            "ON CONFLICT (workspace_id) "
+            "DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()"
+        )
+        with self._connect() as conn:
+            self._ensure_table(conn)
+            with conn.cursor() as cur:
+                cur.execute(query, ("default", json.dumps(payload, ensure_ascii=False)))
+
+    def reset_workspace(self) -> None:
+        """Reset persisted default workspace in PostgreSQL."""
+        try:
+            with self._connect() as conn:
+                self._ensure_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"DELETE FROM {self.table_name} WHERE workspace_id = %s",
+                        ("default",),
+                    )
+        except Exception as exc:
+            logger.warning(
+                "workspace_pg_reset_warning | error_type=%s | error=%s",
                 type(exc).__name__,
                 exc,
             )
