@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Accounting Exception Diagnostics</title>
+  <title>Recon</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./components/recon-logo.js" defer></script>
 </head>
@@ -18,164 +18,20 @@
           dark-src="./assets/recon-mark-dark.svg"
           light-src="./assets/recon-mark-light.svg"
         ></recon-logo>
-        <nav class="header-top-links" aria-label="Primary navigation">
-          <a id="open-workbench-link" class="header-link" href="./workbench/">Open Exception Workbench</a>
-        </nav>
       </div>
-      <h1>Accounting Exception Diagnostics</h1>
-      <p>Paste a receipt and transaction list to instantly understand why something did not match.</p>
+      <h1>Exception Workbench</h1>
+      <p>Recon now opens directly into the workbench workspace.</p>
+      <p class="header-link-wrap">
+        <a class="header-link" id="workbench-home-link" href="./workbench/">Open Workbench</a>
+      </p>
     </header>
-
-    <section class="workspace">
-      <aside class="panel input-panel">
-        <form id="diagnose-form" novalidate>
-          <section class="section-block">
-            <h2>Inputs</h2>
-            <div class="field">
-              <label for="receipt-file">Receipt upload</label>
-              <input id="receipt-file" name="receipt" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" required>
-            </div>
-            <div class="field">
-              <label for="csv-file">Transactions CSV upload</label>
-              <input id="csv-file" name="csv" type="file" accept=".csv,text/csv" required>
-              <p class="help">Expected: merchant, date, amount</p>
-            </div>
-          </section>
-
-          <section class="section-block">
-            <div class="field checkbox-row">
-              <input id="ai-wording" name="ai_wording" type="checkbox">
-              <label for="ai-wording">
-                Use AI-generated wording (optional)
-                <span class="hint" title="Only changes wording; does not change the matching decision.">?</span>
-              </label>
-            </div>
-          </section>
-
-          <section class="section-block security">
-            <h2>SECURITY</h2>
-            <ul>
-              <li>&#10003; Read-only analysis</li>
-              <li>&#10003; No data stored</li>
-            </ul>
-          </section>
-
-          <button id="submit-btn" class="primary" type="submit">Explain Mismatch</button>
-          <p id="status-text" class="status"></p>
-
-          <button id="advanced-toggle" class="link-button" type="button" aria-expanded="false" aria-controls="advanced-fields">Advanced</button>
-          <div id="advanced-fields" class="advanced" hidden>
-            <div class="field">
-              <label for="manual-vendor">manual_vendor</label>
-              <input id="manual-vendor" name="manual_vendor" type="text" autocomplete="off" placeholder="Override vendor">
-            </div>
-            <div class="field">
-              <label for="manual-date">manual_date</label>
-              <input id="manual-date" name="manual_date" type="text" autocomplete="off" placeholder="Override date (YYYY-MM-DD)">
-            </div>
-            <div class="field">
-              <label for="manual-total">manual_total</label>
-              <input id="manual-total" name="manual_total" type="text" autocomplete="off" placeholder="Override total (e.g. 47.50)">
-            </div>
-          </div>
-        </form>
-      </aside>
-
-      <section class="panel results-panel" id="results-panel" aria-live="polite">
-        <h2>Results</h2>
-
-        <div class="status-bar">
-          <div class="badge badge-neutral" id="match-state-badge">Diagnosis will appear here</div>
-          <div class="status-confidence" id="confidence">--%</div>
-        </div>
-
-        <div class="diagnosis-summary" id="diagnosis-summary">Diagnosis will appear here</div>
-        <div class="next-checks" id="next-checks">Next checks: --</div>
-        <div class="row-actions row-actions-compact">
-          <button id="open-in-workbench" class="secondary button-tiny" type="button" disabled>Open in Workbench</button>
-        </div>
-
-        <section class="subsection">
-          <h3>Evidence</h3>
-          <ul id="evidence-list" class="evidence-list">
-            <li class="placeholder-line">Diagnosis evidence will appear here.</li>
-          </ul>
-        </section>
-
-        <section class="subsection">
-          <h3>Top Candidate</h3>
-          <div class="candidate-card placeholder-card" id="top-candidate-card">
-            <dl class="top-candidate">
-              <dt>merchant</dt><dd id="top-merchant">--</dd>
-              <dt>amount</dt><dd id="top-amount">--</dd>
-              <dt>date</dt><dd id="top-date">--</dd>
-              <dt>transaction_id</dt><dd id="top-id">--</dd>
-              <dt>description</dt><dd id="top-description">--</dd>
-              <dt>overall_confidence</dt><dd id="overall-score">--</dd>
-              <dt>vendor_similarity_score</dt><dd id="vendor-score">--</dd>
-              <dt>amount_delta</dt><dd id="amount-delta">--</dd>
-              <dt>amount_delta_pct</dt><dd id="amount-pct">--</dd>
-              <dt>date_delta_days</dt><dd id="date-days">--</dd>
-            </dl>
-          </div>
-        </section>
-
-        <details class="subsection collapsed" id="other-candidates">
-          <summary>Other candidates</summary>
-          <div id="other-candidate-list">
-            <div class="candidate-card skeleton-card">
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line short"></div>
-            </div>
-            <div class="candidate-card skeleton-card">
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line short"></div>
-            </div>
-          </div>
-        </details>
-
-        <section class="subsection">
-          <div class="row-between">
-            <h3>Evidence Viewer</h3>
-            <label class="inline-toggle" for="grounding-toggle">
-              <input id="grounding-toggle" type="checkbox" checked>
-              Show grounding
-            </label>
-          </div>
-
-          <div class="grounding-fields" id="grounding-fields">
-            <button class="field-pill" data-field="vendor" type="button">Vendor</button>
-            <button class="field-pill" data-field="date" type="button">Date</button>
-            <button class="field-pill" data-field="total" type="button">Total</button>
-          </div>
-
-          <div class="viewer-message" id="grounding-message">Grounding not available for this extraction.</div>
-
-          <div id="receipt-viewer-container" class="receipt-viewer no-image">
-            <div class="viewer-stage" id="viewer-stage">
-              <img id="receipt-preview-image" alt="Receipt preview" hidden>
-              <div id="overlay-layer" class="overlay-layer"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="subsection">
-          <h3>Audit Note</h3>
-          <textarea id="audit-note" rows="8" readonly>Diagnosis summary will be generated after analysis.</textarea>
-          <div class="row-actions">
-            <button id="copy-summary" class="secondary" type="button">Copy summary</button>
-            <button id="download-json" class="secondary" type="button" disabled>Download JSON</button>
-          </div>
-        </section>
-
-        <details class="subsection debug-section" id="debug-trace-section" hidden>
-          <summary>Debug trace</summary>
-          <pre id="debug-trace-content"></pre>
-        </details>
-      </section>
-    </section>
   </main>
 
-  <script src="./app.js"></script>
+  <script>
+    (function () {
+      var target = "./workbench/" + (window.location.search || "") + (window.location.hash || "");
+      window.location.replace(target);
+    })();
+  </script>
 </body>
 </html>
