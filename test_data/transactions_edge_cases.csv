@@ -1,0 +1,7 @@
+merchant,amount,date,description,transaction_id
+Walgreens,23.47,2026-01-14,Pharmacy,TXN_E001
+WALGREENS #4821,23.47,2026-01-15,Pharmacy,TXN_E002
+CAFÉ RÉSISTANCE,18.75,2026-01-13,Restaurant,TXN_E003
+Target,0.00,2026-01-15,Voided,TXN_E004
+Amazon,89.97,2026-01-10,Online purchase,TXN_E005
+Amazon,89.97,2026-01-11,Online purchase,TXN_E006

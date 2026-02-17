@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exception Workbench</title>
+  <link rel="stylesheet" href="../styles.css">
+  <script src="../components/recon-logo.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div class="header-topbar">
+        <recon-logo
+          size="md"
+          variant="auto"
+          href="/workbench"
+          dark-src="../assets/recon-mark-dark.svg"
+          light-src="../assets/recon-mark-light.svg"
+        ></recon-logo>
+        <nav class="header-top-links" aria-label="Workbench navigation">
+          <a class="header-link" id="open-diagnose-link" href="../index.html">Open Single Diagnosis</a>
+          <span class="header-divider">|</span>
+          <a class="header-link" id="shortcut-help-link" href="#">Keyboard shortcuts</a>
+        </nav>
+      </div>
+      <h1>Exception Workbench</h1>
+      <p>Review mismatches and investigation results.</p>
+      <p class="workspace-persistence-note">
+        Stored locally for this workspace test.
+        <span id="workspace-save-status">Saved</span>
+      </p>
+    </header>
+
+    <section class="workbench-layout">
+      <section class="panel queue-panel">
+        <h2>Queue</h2>
+        <p id="queue-status" class="status">Loading queue...</p>
+
+        <section class="intake-card">
+          <h3>Add Session Batch</h3>
+          <form id="session-intake-form" novalidate>
+            <div class="field">
+              <label for="intake-transactions-csv">Transactions CSV</label>
+              <input id="intake-transactions-csv" type="file" accept=".csv,text/csv" required>
+            </div>
+            <div class="field">
+              <label for="intake-receipts">Receipts (optional multiple)</label>
+              <input id="intake-receipts" type="file" accept=".png,.jpg,.jpeg,.pdf,.tiff,.tif,.bmp,.webp" multiple>
+            </div>
+            <button id="session-intake-submit" class="primary button-inline-primary" type="submit">Populate Workbench</button>
+            <p id="session-intake-status" class="status intake-status"></p>
+            <p class="help intake-help">Runs diagnostic analysis and adds only mismatches to the workbench.</p>
+          </form>
+        </section>
+
+        <div class="session-controls">
+          <span id="current-session-label">Session: --</span>
+          <button id="clear-current-session" class="secondary" type="button" disabled>Clear Current Session</button>
+        </div>
+
+        <div class="queue-controls">
+          <div class="field">
+            <label for="queue-search">Search</label>
+            <input id="queue-search" type="text" placeholder="merchant, vendor, diagnosis">
+          </div>
+
+          <div class="queue-filter-pills" id="queue-filter-pills">
+            <button class="filter-pill active" type="button" data-filter="all">All</button>
+            <button class="filter-pill" type="button" data-filter="probable">Probable</button>
+            <button class="filter-pill" type="button" data-filter="possible">Possible</button>
+            <button class="filter-pill" type="button" data-filter="no_confident">No Confident</button>
+          </div>
+
+        <div class="queue-control-row">
+          <div class="field queue-sort-field">
+            <label for="queue-sort">Sort</label>
+            <select id="queue-sort">
+              <option value="confidence_desc" selected>Confidence desc</option>
+              <option value="amount_desc">Amount desc</option>
+              <option value="date_desc">Date desc</option>
+            </select>
+          </div>
+
+          <label class="queue-checkbox" for="show-only-unresolved">
+            <input id="show-only-unresolved" type="checkbox">
+            Show only unresolved
+          </label>
+        </div>
+      </div>
+
+        <div class="queue-table-wrap">
+          <table class="queue-table" id="queue-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Merchant</th>
+                <th>Amount</th>
+                <th>Diagnosis</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="queue-body">
+              <tr>
+                <td colspan="5" class="queue-empty">No exceptions in queue yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel detail-panel">
+        <div id="detail-empty" class="detail-empty">
+          Select an exception from the queue to review details.
+        </div>
+
+        <section id="detail-view" hidden>
+          <div class="detail-sticky-header">
+          <div class="detail-sticky-main">
+            <span class="badge badge-neutral" id="detail-match-state">--</span>
+            <span class="status-confidence" id="detail-confidence">--%</span>
+            <span class="detail-diagnosis-label" id="detail-diagnosis">Diagnosis details</span>
+            <span id="detail-known-alias-badge" class="memory-badge" hidden>Known alias (from prior review)</span>
+          </div>
+          <p id="detail-pattern-hint" class="pattern-hint" hidden></p>
+            <div class="detail-sticky-actions">
+              <button id="back-to-workbench" class="secondary" type="button">&larr; Back</button>
+              <button id="prev-item" class="secondary" type="button">Previous</button>
+              <button id="next-item" class="secondary" type="button">Next</button>
+              <button id="detail-copy-summary" class="primary button-inline-primary" type="button">Copy Audit Memo</button>
+              <button id="detail-copy-next" class="secondary" type="button">Copy Memo + Next</button>
+            </div>
+            <div class="detail-resolution-row">
+              <p class="resolution-guidance">Mark your decision. This does not change accounting records.</p>
+              <fieldset class="resolution-options" id="detail-resolution-options" aria-label="Resolution">
+                <label class="resolution-pill">
+                  <input type="radio" name="detail-resolution" value="accepted">
+                  <span>Accept Match</span>
+                </label>
+                <label class="resolution-pill">
+                  <input type="radio" name="detail-resolution" value="ignored">
+                  <span>Ignore</span>
+                </label>
+                <label class="resolution-pill">
+                  <input type="radio" name="detail-resolution" value="follow_up">
+                  <span>Needs Follow-up</span>
+                </label>
+              </fieldset>
+              <div class="detail-resolution-actions">
+                <span id="detail-resolution-state" class="resolution-state">Resolution: Unreviewed</span>
+                <button id="detail-resolution-clear" class="secondary" type="button">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <section class="subsection detail-after-sticky">
+            <h3>Evidence</h3>
+            <ul class="evidence-list" id="detail-evidence"></ul>
+          </section>
+
+          <section class="subsection">
+            <h3>Top Candidate</h3>
+            <div class="candidate-card">
+              <dl class="top-candidate">
+                <dt>merchant</dt><dd id="detail-merchant">--</dd>
+                <dt>amount</dt><dd id="detail-amount">--</dd>
+                <dt>date</dt><dd id="detail-date">--</dd>
+                <dt>transaction_id</dt><dd id="detail-transaction-id">--</dd>
+                <dt>vendor_similarity_score</dt><dd id="detail-vendor-score">--</dd>
+                <dt>amount_delta_pct</dt><dd id="detail-amount-pct">--</dd>
+                <dt>date_delta_days</dt><dd id="detail-date-days">--</dd>
+              </dl>
+            </div>
+          </section>
+
+          <section id="detail-alias-memory-section" class="subsection" hidden>
+            <details class="alias-memory-details">
+              <summary>Alias Memory</summary>
+              <p id="detail-alias-memory-text" class="alias-memory-text"></p>
+            </details>
+          </section>
+
+          <section class="subsection">
+            <h3>Audit Note</h3>
+            <textarea id="detail-audit-note" rows="8" readonly></textarea>
+            <div class="row-actions">
+              <button id="detail-download-json" class="secondary" type="button">Download JSON</button>
+            </div>
+          </section>
+
+          <section class="subsection">
+            <h3>Decision Note</h3>
+            <label class="decision-note-label" for="detail-decision-note">Decision note (optional)</label>
+            <textarea id="detail-decision-note" rows="4" placeholder="Add review context for this exception"></textarea>
+          </section>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div class="shortcut-modal" id="shortcut-modal" hidden>
+    <div class="shortcut-modal-card" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
+      <h2 id="shortcut-modal-title">Keyboard Shortcuts</h2>
+      <div class="shortcut-grid">
+        <div class="shortcut-col">
+          <h3>List View</h3>
+          <p><kbd>J</kbd> Move down</p>
+          <p><kbd>K</kbd> Move up</p>
+          <p><kbd>Enter</kbd> Open selected</p>
+          <p><kbd>/</kbd> Focus search</p>
+          <p><kbd>Esc</kbd> Clear search focus</p>
+        </div>
+        <div class="shortcut-col">
+          <h3>Detail View</h3>
+          <p><kbd>J</kbd> Next item</p>
+          <p><kbd>K</kbd> Previous item</p>
+          <p><kbd>C</kbd> Copy audit memo</p>
+          <p><kbd>Shift+C</kbd> Copy memo + next</p>
+          <p><kbd>Esc</kbd> Back to list</p>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button id="shortcut-modal-close" class="secondary" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="./workbench_logic.js"></script>
+  <script src="./decision_state.js"></script>
+  <script src="./memory_state.js"></script>
+  <script src="./workspace_sync.js"></script>
+  <script src="./workbench.js"></script>
+</body>
+</html>

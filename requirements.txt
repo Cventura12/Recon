@@ -1,0 +1,37 @@
+﻿# ----------------------------------------------------------
+# Diagnostic Agent for Accounting Exceptions — Dependencies
+# ----------------------------------------------------------
+
+# -- Core Dependencies --
+
+# Data models with automatic validation, type coercion, and JSON schema
+# generation. Every module communicates through Pydantic models.
+# Using v2 for improved performance and ConfigDict support.
+pydantic>=2.0,<3.0
+
+# Tabular data processing for bank/credit card transaction CSVs.
+# Handles CSV loading, column selection, filtering, and iteration.
+pandas>=2.0,<3.0
+
+# High-performance fuzzy string matching for vendor name comparison.
+# Uses Levenshtein distance variants optimized in C++.
+# Falls back to difflib.SequenceMatcher if not installed.
+rapidfuzz>=3.0,<4.0
+
+# Loads environment variables from .env file into os.environ.
+# Keeps API keys out of source code.
+python-dotenv>=1.0,<2.0
+
+# Flexible date string parsing. Handles diverse formats:
+# "01/15/2026", "Jan 15, 2026", "2026-01-15", "15-Jan-26", etc.
+python-dateutil>=2.8
+
+# -- Optional: Receipt Extraction --
+# Uncomment when you have an ADE API key from https://va.landing.ai
+# vision-agent
+
+# -- Optional: Phase 9 (Web UI) --
+# HTTP API + local web interface
+fastapi>=0.110,<1.0
+uvicorn>=0.23,<1.0
+python-multipart>=0.0.6,<1.0

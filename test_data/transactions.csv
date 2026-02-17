@@ -1,0 +1,11 @@
+merchant,amount,date,description,transaction_id
+Amazon,89.97,2026-01-10,Online purchase,TXN001
+ELAGAVE*1847 CHATT TN,47.50,2026-01-12,Restaurant,TXN002
+Starbucks,6.83,2026-01-14,Coffee,TXN003
+THE HOME DEPOT #4821,234.67,2026-01-17,Hardware supplies,TXN004
+FASTENAL CO01 CHATT,182.59,2026-01-20,Industrial supplies,TXN005
+Walmart,156.32,2026-01-11,Groceries,TXN006
+Shell Gas Station,62.14,2026-01-13,Fuel,TXN007
+SYSCO 4823847,1247.83,2026-01-16,Food distribution,TXN008
+PP*JOHNDEEREFINAN,450.00,2026-01-15,Equipment payment,TXN009
+AMZN MKTP US*2K4RF,34.99,2026-01-18,Online purchase,TXN010

@@ -1,0 +1,61 @@
+# Python runtime artifacts - never commit compiled bytecode.
+__pycache__/
+pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution/packaging - build artifacts, not source.
+dist/
+build/
+*.egg-info/
+*.egg
+eggs/
+
+# Virtual environments - machine-specific, not portable.
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files - contain secrets (API keys).
+# CRITICAL: .env contains your ADE API key. Never commit API keys to version control.
+.env
+.env.local
+.env.*.local
+
+# IDE/editor files - user-specific settings.
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS artifacts - filesystem metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Receipt images - may contain PII (names, addresses, card numbers).
+# Receipt images may contain personally identifiable information (PII) including customer names, addresses, and partial credit card numbers. Never commit real receipt images.
+test_data/receipts/*.png
+test_data/receipts/*.jpg
+test_data/receipts/*.jpeg
+test_data/receipts/*.pdf
+
+# Log files - runtime output.
+*.log
+logs/
+
+# Jupyter - checkpoint files.
+.ipynb_checkpoints/
+
+# Testing - coverage reports.
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Local workspace persistence state (generated at runtime)
+data/workspace.json
