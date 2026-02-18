@@ -3,35 +3,117 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recon</title>
-  <link rel="stylesheet" href="./styles.css">
+  <title>Recon - Diagnostic Intelligence</title>
+  <link rel="stylesheet" href="./styles.css?v=20260218b">
   <script src="./components/recon-logo.js" defer></script>
+  <script src="./auth.js" defer></script>
 </head>
-<body>
-  <main class="shell">
-    <header class="header">
-      <div class="header-topbar">
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-hero">
+      <div class="auth-grid-overlay" aria-hidden="true"></div>
+      <div class="auth-hero-content">
+        <div class="auth-brand">
+          <recon-logo
+            size="md"
+            variant="light"
+            href="./workbench/"
+            dark-src="./assets/recon-mark-dark.svg"
+            light-src="./assets/recon-mark-light.svg"
+          ></recon-logo>
+          <p class="auth-tagline">&#8212; Diagnostic Intelligence</p>
+        </div>
+
+        <h1 class="auth-hero-title">
+          Know exactly <span>why</span> it didn't match.
+        </h1>
+
+        <p class="auth-hero-copy">
+          Recon sits where your matching software stops. When a receipt hits the exception
+          queue, Recon tells you the reason, not just the result.
+        </p>
+
+        <div class="auth-feature-list">
+          <article class="auth-feature-card">
+            <span class="auth-feature-icon">&#128270;</span>
+            <div>
+              <h2>Evidence-first diagnosis</h2>
+              <p>Vendor &#8226; Amount &#8226; Date &#8226; Confidence scored</p>
+            </div>
+          </article>
+          <article class="auth-feature-card">
+            <span class="auth-feature-icon">&#9889;</span>
+            <div>
+              <h2>Live inbox - morning-open ready</h2>
+              <p>Drop files in <code>./recon_inbox</code> &#8226; Auto-ingested</p>
+            </div>
+          </article>
+          <article class="auth-feature-card">
+            <span class="auth-feature-icon">&#128196;</span>
+            <div>
+              <h2>Audit-ready export</h2>
+              <p>Human confirms &#8226; Memo generated &#8226; No ERP writes</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-panel-brand">
         <recon-logo
           size="md"
-          variant="auto"
-          href="/workbench"
+          variant="dark"
+          href="./workbench/"
           dark-src="./assets/recon-mark-dark.svg"
           light-src="./assets/recon-mark-light.svg"
         ></recon-logo>
       </div>
-      <h1>Exception Workbench</h1>
-      <p>Recon now opens directly into the workbench workspace.</p>
-      <p class="header-link-wrap">
-        <a class="header-link" id="workbench-home-link" href="./workbench/">Open Workbench</a>
-      </p>
-    </header>
-  </main>
 
-  <script>
-    (function () {
-      var target = "./workbench/" + (window.location.search || "") + (window.location.hash || "");
-      window.location.replace(target);
-    })();
-  </script>
+      <div class="auth-panel-content">
+        <header class="auth-header">
+          <h2>Welcome back</h2>
+          <p>Sign in to your investigation workspace</p>
+        </header>
+
+        <section class="auth-card" aria-label="Authentication">
+          <div class="auth-tabs" role="tablist" aria-label="Sign in or sign up">
+            <button class="auth-tab active" data-auth-tab="signin" type="button" role="tab" aria-selected="true">Sign In</button>
+            <button class="auth-tab" data-auth-tab="signup" type="button" role="tab" aria-selected="false">Sign Up</button>
+          </div>
+
+          <form id="auth-form" class="auth-form" novalidate>
+            <label for="auth-email">Work Email</label>
+            <input id="auth-email" type="email" autocomplete="email" placeholder="you@company.com" required>
+
+            <div class="auth-password-row">
+              <label for="auth-password">Password</label>
+              <a href="#" class="auth-link">Forgot password?</a>
+            </div>
+            <div class="auth-password-wrap">
+              <input id="auth-password" type="password" autocomplete="current-password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" required>
+              <button id="auth-toggle-password" type="button" class="auth-eye" aria-label="Show password">&#128065;</button>
+            </div>
+
+            <button id="auth-submit" class="auth-submit" type="submit">Sign In to Recon</button>
+          </form>
+
+          <div class="auth-divider">
+            <span>or continue with</span>
+          </div>
+
+          <button type="button" class="auth-google">
+            <span class="auth-google-icon">G</span>
+            Continue with Google
+          </button>
+        </section>
+
+        <p class="auth-footer">
+          Don't have an account? <button id="auth-switch" type="button">Sign up free &#8594;</button>
+        </p>
+        <p class="auth-local-note">Local prototype mode: auth UI only. Workspace remains deterministic and read-only.</p>
+      </div>
+    </section>
+  </main>
 </body>
 </html>
